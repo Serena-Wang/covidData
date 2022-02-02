@@ -22,7 +22,7 @@ jobs:
       
       - name: Install dependencies
         run: |
-          install.packages(c("tidyverse", "dplyr", "httr", "readr", "here"))
+          install.packages(c("tidyverse", "dplyr", "httr", "readr", "here", "tidyr"))
         shell: Rscript {0}
 
       - name: Update time series
