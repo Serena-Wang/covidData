@@ -2,11 +2,11 @@ library(readr)
 library(purrr)
 library(tibble)
 library(here)
-library(covidData)
+library(dplyr)
 
 # after this your working directory should be covidData
 setwd(here())
-
+source("R/calc_jhu_global_cum.R")
 # US deaths
 files <- Sys.glob("data-raw/JHU/*deaths_US.csv")
 
