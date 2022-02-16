@@ -1,6 +1,9 @@
 #' Assemble a data frame of incident and cumulative cases, deaths or hospitalizations due to
 #' COVID-19 as they were available as of one or more past dates.
 #'
+#' @param location_code character vector of location codes. Default to NULL.
+#' For US locations, this should be a list of FIPS code or 'US'
+#' For ECDC locations, this should be a list of location name abbreviation.
 #' @param issues vector of issue dates (i.e. report dates) to use for querying data,
 #' either \code{Date} objects or strings in the format 'yyyy-mm-dd'. Data for the
 #' requested measures that were reported or updated exactly on the specified
@@ -11,15 +14,23 @@
 #' available data with an issue date on or before the given \code{as_of} date are returned.
 #' @param spatial_resolution character vector specifying spatial unit types to
 #' include: one or more of 'county', 'state' and/or 'national'.
+#' Default to 'state'.
+#' Note that 'county' is not available for hospitalization data.
+#' When source is "covidcast", this parameter has to match with location_code, if specified.
 #' @param temporal_resolution string specifying temporal resolution
 #' to include: one of 'daily' or 'weekly'
 #' @param measure string specifying measure of covid dynamics:
-#' one of 'deaths', 'cases', or 'hospitalizations'
+#' one of 'deaths', 'cases', or 'hospitalizations'. Default to 'deaths'.
+#' @param geography character, which data to read. Default is "US", other option is
+#' "global".
+#' Note that "global" is not available for hospitalization data and "covidcast" source.
 #' @param source string specifying data source.  Currently supported sources are
-#' "jhu" for the "deaths" or "cases" measures or "healthdata" for the "hospitalizations"
-#' measure.
+#' "jhu" or "covidcast" for the "deaths" or "cases" measures;
+#'  "healthdata" or "covidcast" for the "hospitalizations" measure.
+#'  Default to NULL which means "healthdata" for hospitalization data and "jhu" for all other
+#'  measures.
 #'
-#' @return data frame with columns location (fips code), date, inc, cum, issue_date, as_of
+#' @return data frame with columns location (fips code), date, inc, cum
 #'
 #' @details Data for a specified \code{issue} are only returned if the data were first available
 #' on that date, or were updated on that date. A warning is generated for any issue dates
@@ -39,12 +50,13 @@
 #' results for the most recent available \code{as_of} date are returned.
 #'
 #' @export
-load_data <- function(
-                      issues = NULL,
+load_data <- function(issues = NULL,
                       as_of = NULL,
+                      location_code = NULL,
                       spatial_resolution = "state",
                       temporal_resolution = "weekly",
                       measure = "deaths",
+                      geography = c("US", "global"),
                       source = NULL) {
 
   # validate measure
@@ -83,28 +95,36 @@ load_data <- function(
   } else {
     source <- match.arg(
       source,
-      choices = c("healthdata", "jhu"),
+      choices = c("healthdata", "jhu", "covidcast"),
       several.ok = FALSE
     )
   }
-  if (measure == "hospitalizations" && source != "healthdata") {
-    stop("Source must be 'healthdata' when measure is 'hospitalizations'.")
+
+  if (measure == "hospitalizations" &&
+    !source %in% c("healthdata", "covidcast")) {
+    stop("Source must be 'healthdata' or 'covidcast' when measure is 'hospitalizations'.")
+  } else if (measure != "hospitalizations" && source == "healthdata"){
+    stop("Source must be 'jhu' or 'covidcast' when measure is not 'hospitalizations'.")
   }
-  if (measure != "hospitalizations" && source == "healthdata") {
-    stop("Source must be 'jhu' when measure is 'cases' or 'deaths'.")
+  
+  if (measure == "hospitalizations" &&
+      geography[1] != "US") {
+    geography <- "US"
+    warning("Only US hospitalization data are available now. Will be loading US data instead.")
   }
 
   # validate issues and as_of
-  if (!missing(issues) && !missing(as_of) &&
-    !is.null(issues) && !is.null(as_of)) {
+  if (!is.null(issues) && !is.null(as_of)) {
     warning("Cannot provide both arguments issues and as_of to load_data. Ignoring the issues argument.")
     issues <- NULL
   }
 
   # source proper function
-  if (measure == "hospitalizations") {
+  if (source == "healthdata") {
     function_call <- covidData::load_healthdata_data
-  } else {
+  } else if (source == "covidcast") {
+    function_call <- covidData::load_covidcast_data
+  } else if (source == "jhu") {
     function_call <- covidData::load_jhu_data
   }
 
@@ -113,24 +133,31 @@ load_data <- function(
     purrr::map_dfr(issues,
       function_call,
       as_of = as_of,
+      location_code = location_code,
       spatial_resolution = spatial_resolution,
       temporal_resolution = temporal_resolution,
-      measure = measure
+      measure = measure,
+      geography = geography
     )
   } else if (!is.null(as_of)) {
-    purrr::map_dfr(as_of, 
-        function_call,
-        issue_date = issues,
-        spatial_resolution = spatial_resolution,
-        temporal_resolution = temporal_resolution,
-        measure = measure
+    purrr::map_dfr(as_of,
+      function_call,
+      issue_date = issues,
+      location_code = location_code,
+      spatial_resolution = spatial_resolution,
+      temporal_resolution = temporal_resolution,
+      measure = measure,
+      geography = geography
     )
   } else {
     function_call(
-      issue_date = issues, as_of,
-      spatial_resolution,
-      temporal_resolution,
-      measure
+      issue_date = issues,
+      as_of = as_of,
+      location_code = location_code,
+      spatial_resolution = spatial_resolution,
+      temporal_resolution = temporal_resolution,
+      measure = measure,
+      geography = geography
     )
   }
 }

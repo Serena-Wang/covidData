@@ -6,7 +6,8 @@ on:
         description: 'Update time series data links'
         required: false
   schedule:
-    - cron: "0 2 * * *"
+    - cron: "0 0 * * *"
+    - cron: "0 17 * * *"
 
 jobs:
   update_time_series_links:
@@ -22,7 +23,11 @@ jobs:
       
       - name: Install dependencies
         run: |
+<<<<<<< HEAD
           install.packages(c("tidyverse", "dplyr", "httr", "readr", "here", "tidyr"))
+=======
+          install.packages(c("tidyverse", "dplyr", "httr", "readr", "here"))
+>>>>>>> ce9fc0c2400becd87614adae0e75fb1bc2f3d8a7
         shell: Rscript {0}
 
       - name: Update time series

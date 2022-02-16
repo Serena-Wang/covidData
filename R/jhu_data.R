@@ -5,7 +5,7 @@
 #' constructing truths in format 'yyyy-mm-dd'
 #' @param location_code character vector of location codes. Default to NULL.
 #' For US locations, this should be a list of FIPS code or 'US' 
-#' For ECDC locations, this should be a list of country name abbreviation.
+#' For ECDC locations, this should be a list of location name abbreviation.
 #' @param spatial_resolution character vector specifying spatial unit types to
 #' include: 'county', 'state' and/or 'national'.
 #' This parameter will be ignored if location_code is provided or geography is "global".
@@ -46,7 +46,7 @@ load_jhu_data <- function(
   measure <- match.arg(measure, choices = c("cases", "deaths"))
   
   # validate issue_date and as_of and load preprocessed data
-  jhu_data <- covidData:::preprocess_jhu_data(issue_date, as_of, measure, geography)
+  jhu_data <- preprocess_jhu_data(issue_date, as_of, measure, geography)
   
   if (geography[1] == "US"){
     valid_locations <- covidData::fips_codes
@@ -120,7 +120,7 @@ load_jhu_data <- function(
       # get corresponding country names
       country_names <- valid_locations %>%
         dplyr::filter(location %in% location_code) %>%
-        dplyr::pull(location_name)
+        dplyr::pull(location)
     }
   }
   
@@ -205,9 +205,14 @@ load_jhu_data <- function(
   } else if (geography[1] == "global"){
       results <- jhu_data %>%
         dplyr::rename(location = `Country/Region`) %>%
+        dplyr::filter(!location %in% c("Diamond Princess", "MS Zaandam")) %>%
         dplyr::group_by(location) %>%
         dplyr::mutate(inc = diff(c(0, cum))) %>%
-        dplyr::ungroup() %>%
+        dplyr::ungroup() %>% 
+        dplyr::left_join(y = valid_locations, 
+                         by = c("location" = "location_name")) %>%
+        dplyr::select(-location) %>%
+        dplyr::rename(location = location.y) %>%
         dplyr::select(location, date, cum, inc)
     
       if (length(country_names) > 0){
@@ -375,8 +380,7 @@ preprocess_jhu_data <- function(issue_date = NULL,
   }
   
   # validate issue_date and as_of
-  if (!missing(issue_date) && !missing(as_of) &&
-      !is.null(issue_date) && !is.null(as_of)) {
+  if (!is.null(issue_date) && !is.null(as_of)) {
     stop("Cannot provide both arguments issue_date and as_of to load_jhu_data.")
   } else if (is.null(issue_date) && is.null(as_of)) {
     issue_date <- Sys.Date()
@@ -435,14 +439,26 @@ preprocess_jhu_data <- function(issue_date = NULL,
 #' 
 #' @return date vector of all available issue_date
 #' 
+#' @export
 available_issue_dates <- function(measure,  geography = c("US", "global")){
   if (measure == "hospitalizations"){
-    return (covidData::healthdata_hosp_data$issue_date)
+    #retrieve data update history
+    healthdata_timeseries_history <- healthdata_timeseries_history()
+    healthdata_dailyrevision_history <- healthdata_dailyrevision_history()
+    
+    all_avail_issue_date <- unique(c(
+      healthdata_timeseries_history$issue_date,
+      healthdata_dailyrevision_history$issue_date))
+    all_avail_issue_date <- unique(c(
+      all_avail_issue_date,
+      covidData::healthdata_hosp_early_data$issue_date))
+
+    return(all_avail_issue_date)
   } else if (measure == "deaths"){
     links <- get_time_series_data_link(measure, geography)
-    return (links$date)
+    return(links$date)
   } else if (measure == "cases"){
     links <- get_time_series_data_link(measure, geography)
-    return (links$date)
+    return(links$date)
   }
 }
