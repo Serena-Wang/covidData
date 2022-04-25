@@ -39,27 +39,6 @@
 #' measure ('cases') and inc
 "jhu_cases_imputed_data"
 
-
-#' data frame for JHU US deaths time series data links
-#'
-#' @format A data.frame with date and file_link
-"jhu_us_deaths_data_links"
-
-#' data frame for JHU US cases time series data links
-#'
-#' @format A data.frame with date and file_link
-"jhu_us_cases_data_links"
-
-#' data frame for JHU global deaths time series data links
-#'
-#' @format A data.frame with date and file_link
-"jhu_global_deaths_data_links"
-
-#' data frame for JHU global cases time series data links
-#'
-#' @format A data.frame with date and file_link
-"jhu_global_cases_data_links"
-
 #' data frame for hosp time series data before 2021-03-12
 #'
 #' @format A data.frame with issue_date and file_link
